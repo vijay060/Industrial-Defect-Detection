@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Select 15 normal and 15 anomaly images per VisA product class."""
+"""Select a reproducible sample of normal and anomaly VisA images."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
 
 def image_files(folder: Path) -> list[Path]:
+    """Return supported image files in a folder, sorted by path."""
     return sorted(
         path
         for path in folder.iterdir()
@@ -26,6 +27,17 @@ def select_images(
     samples_per_condition: int = 15,
     seed: int = 42,
 ) -> int:
+    """Copy a fixed-seed sample of each class and condition to a flat folder.
+
+    Args:
+        dataset_root: Root containing VisA class directories.
+        output_dir: Destination for selected images; must be empty or absent.
+        samples_per_condition: Number of images selected per class/condition pair.
+        seed: Random seed used to make selection reproducible.
+
+    Returns:
+        The number of copied images.
+    """
     if output_dir.exists() and any(output_dir.iterdir()):
         raise FileExistsError(
             f"{output_dir} is not empty. Use a new folder to avoid overwriting data."
