@@ -20,7 +20,21 @@ from torchvision.models import (
 SUPPORTED_BACKBONES = ("mobilenet_v3_large", "efficientnet_b0")
 
 
-def build_feature_extractor(backbone: str, pretrained: bool):
+def build_feature_extractor(
+    backbone: str, pretrained: bool
+) -> tuple[nn.Sequential, int]:
+    """Build the selected torchvision feature extractor.
+
+    Args:
+        backbone: Supported classifier backbone name.
+        pretrained: Whether to initialize the backbone with default weights.
+
+    Returns:
+        The backbone feature layers and their output channel count.
+
+    Raises:
+        ValueError: If ``backbone`` is not supported.
+    """
     if backbone == "mobilenet_v3_large":
         weights = MobileNet_V3_Large_Weights.DEFAULT if pretrained else None
         network = mobilenet_v3_large(weights=weights)
@@ -44,7 +58,7 @@ class ClassConditionedClassifier(nn.Module):
         pretrained: bool = True,
         embedding_dim: int = 128,
         dropout: float = 0.30,
-    ):
+    ) -> None:
         super().__init__()
         self.backbone_name = backbone
         self.features, feature_dim = build_feature_extractor(backbone, pretrained)
@@ -61,7 +75,10 @@ class ClassConditionedClassifier(nn.Module):
             nn.Linear(512, 1),
         )
 
-    def forward(self, images: torch.Tensor, class_ids: torch.Tensor):
+    def forward(
+        self, images: torch.Tensor, class_ids: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Compute defect logits and spatial attention for an image batch."""
         feature_map = self.features(images)
         embedding = self.class_embedding(class_ids)
         keys = F.normalize(feature_map, dim=1)
@@ -89,6 +106,7 @@ def build_model(
     embedding_dim: int = 128,
     dropout: float = 0.30,
 ) -> ClassConditionedClassifier:
+    """Create and place a class-conditioned classifier on ``device``."""
     model = ClassConditionedClassifier(
         num_classes=num_classes,
         backbone=backbone,
@@ -100,6 +118,8 @@ def build_model(
 
 
 class SquarePad:
+    """Pad a PIL image to a centered square without resizing it."""
+
     def __call__(self, image: Image.Image) -> Image.Image:
         width, height = image.size
         side = max(width, height)
@@ -112,7 +132,10 @@ class SquarePad:
         )
 
 
-def build_transforms(image_size: int):
+def build_transforms(
+    image_size: int,
+) -> tuple[transforms.Compose, transforms.Compose]:
+    """Build the training and evaluation image preprocessing pipelines."""
     normalize = transforms.Normalize(
         mean=(0.485, 0.456, 0.406),
         std=(0.229, 0.224, 0.225),

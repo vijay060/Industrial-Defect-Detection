@@ -62,7 +62,7 @@ def _sync_cuda(device: torch.device) -> None:
         torch.cuda.synchronize(device)
 
 
-def _model_names(names) -> dict[int, str]:
+def _model_names(names: dict | list[str]) -> dict[int, str]:
     if isinstance(names, dict):
         return {int(key): str(value) for key, value in names.items()}
     return {index: str(value) for index, value in enumerate(names)}
@@ -175,6 +175,7 @@ class InspectionModels:
                 polygon_array = np.asarray(polygon, dtype=np.float32)
                 mask = np.zeros((height, width), dtype=np.uint8)
                 cv2.fillPoly(mask, [np.rint(polygon_array).astype(np.int32)], 255)
+                # Mask outside the detected polygon before extracting the padded box crop.
                 object_image = cv2.bitwise_and(rgb, rgb, mask=mask)
             crop = Image.fromarray(object_image[top:bottom, left:right]).convert("RGB")
             class_name = self.yolo_names.get(int(class_id), f"class_{class_id}")
@@ -330,6 +331,7 @@ def inspect_zip(
             None,
         )
 
+        # Process ZIP members in sorted order and stream each image's result to the UI.
         for position, info in enumerate(members, start=1):
             annotated = None
             try:
@@ -483,7 +485,9 @@ def build_interface() -> gr.Blocks:
                     "Model loading and warm-up are excluded from all displayed timings."
                 )
             with gr.Column(scale=2):
-                status = gr.Markdown("Models loaded. Upload a ZIP to begin.", elem_id="status-panel")
+                status = gr.Markdown(
+                    "Models loaded. Upload a ZIP to begin.", elem_id="status-panel"
+                )
                 current_image = gr.Image(
                     label="Current processed image",
                     type="pil",
@@ -492,7 +496,18 @@ def build_interface() -> gr.Blocks:
 
         results = gr.Dataframe(
             headers=RESULT_COLUMNS,
-            datatype=["str", "str", "number", "number", "str", "str", "str", "str", "str", "str"],
+            datatype=[
+                "str",
+                "str",
+                "number",
+                "number",
+                "str",
+                "str",
+                "str",
+                "str",
+                "str",
+                "str",
+            ],
             label="Live inspection results",
             interactive=False,
             wrap=True,
